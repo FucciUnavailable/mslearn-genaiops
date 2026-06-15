@@ -9,8 +9,8 @@ from azure.ai.projects.models import PromptAgentDefinition
 load_dotenv()
 
 # Read instructions from prompt file
-prompt_file = Path(__file__).parent / 'prompts' / 'v1_instructions.txt'
-with open(prompt_file, 'r') as f:
+prompt_file = Path(__file__).parent / "prompts" / "v1_instructions.txt"
+with open(prompt_file, "r") as f:
     instructions = f.read().strip()
 
 project_client = AIProjectClient(
@@ -25,4 +25,7 @@ agent = project_client.agents.create_version(
         instructions=instructions,
     ),
 )
-print(f"Agent created (id: {agent.id}, name: {agent.name}, version: {agent.version})")
+print(
+    f"Agent v1 created (id: {agent.id}, name: {agent.name}, version: {agent.version})"
+)
+
