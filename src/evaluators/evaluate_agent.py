@@ -29,10 +29,10 @@ from openai.types.evals.create_eval_jsonl_run_data_source_param import (
 
 load_dotenv()  # reads variables from the .env file in your project root
 
-endpoint              = os.environ.get("AZURE_AI_PROJECT_ENDPOINT")
+endpoint = os.environ.get("AZURE_AI_PROJECT_ENDPOINT")
 model_deployment_name = os.environ.get("MODEL_NAME", "gpt-4.1")
-dataset_name          = "trail-guide-evaluation-dataset"
-dataset_version       = "2"
+dataset_name = "trail-guide-evaluation-dataset"
+dataset_version = "2"
 # ---------------------------------------------------------------------------
 # DATASET VERSION CONVENTION  (read before changing dataset_version!)
 # ---------------------------------------------------------------------------
@@ -78,6 +78,7 @@ client = project_client.get_openai_client()
 # Helper
 # ---------------------------------------------------------------------------
 
+
 def section(title: str) -> None:
     """Print a clearly visible section header to make the log easy to skim."""
     print(f"\n{'=' * 80}")
@@ -88,6 +89,7 @@ def section(title: str) -> None:
 # ---------------------------------------------------------------------------
 # Step 1 – Upload the evaluation dataset
 # ---------------------------------------------------------------------------
+
 
 def upload_dataset() -> str:
     """
@@ -129,7 +131,9 @@ def upload_dataset() -> str:
         if "already exists" in str(upload_error):
             print(f"\n  Dataset version {dataset_version} already exists in Foundry.")
             print(f"  Retrieving existing dataset ID...")
-            dataset_obj = project_client.datasets.get(name=dataset_name, version=dataset_version)
+            dataset_obj = project_client.datasets.get(
+                name=dataset_name, version=dataset_version
+            )
             data_id = dataset_obj.id
             print(f"  ✓ Using existing dataset")
         else:
@@ -143,6 +147,7 @@ def upload_dataset() -> str:
 # ---------------------------------------------------------------------------
 # Step 2 – Create the evaluation definition
 # ---------------------------------------------------------------------------
+
 
 def create_evaluation_definition():
     """
@@ -166,8 +171,8 @@ def create_evaluation_definition():
         item_schema={
             "type": "object",
             "properties": {
-                "query":        {"type": "string"},
-                "response":     {"type": "string"},
+                "query": {"type": "string"},
+                "response": {"type": "string"},
                 "ground_truth": {"type": "string"},
             },
             "required": ["query", "response", "ground_truth"],
@@ -183,7 +188,7 @@ def create_evaluation_definition():
             "evaluator_name": "builtin.intent_resolution",
             "initialization_parameters": {"deployment_name": model_deployment_name},
             "data_mapping": {
-                "query":    "{{item.query}}",
+                "query": "{{item.query}}",
                 "response": "{{item.response}}",
             },
         },
@@ -193,7 +198,7 @@ def create_evaluation_definition():
             "evaluator_name": "builtin.relevance",
             "initialization_parameters": {"deployment_name": model_deployment_name},
             "data_mapping": {
-                "query":    "{{item.query}}",
+                "query": "{{item.query}}",
                 "response": "{{item.response}}",
             },
         },
@@ -203,9 +208,9 @@ def create_evaluation_definition():
             "evaluator_name": "builtin.groundedness",
             "initialization_parameters": {"deployment_name": model_deployment_name},
             "data_mapping": {
-                "query":    "{{item.query}}",
+                "query": "{{item.query}}",
                 "response": "{{item.response}}",
-                "context":  "{{item.ground_truth}}",
+                "context": "{{item.ground_truth}}",
             },
         },
     ]
@@ -225,6 +230,7 @@ def create_evaluation_definition():
 # ---------------------------------------------------------------------------
 # Step 3 – Start the evaluation run
 # ---------------------------------------------------------------------------
+
 
 def run_evaluation(eval_object, data_id):
     """
@@ -250,13 +256,16 @@ def run_evaluation(eval_object, data_id):
     print(f"\n✓ Evaluation run started")
     print(f"  Run ID: {eval_run.id}")
     print(f"  Status: {eval_run.status}")
-    print(f"\nThis may take a few minutes for 5 items depending on capacity and quota...")
+    print(
+        f"\nThis may take a few minutes for 5 items depending on capacity and quota..."
+    )
     return eval_run
 
 
 # ---------------------------------------------------------------------------
 # Step 4 – Poll until the run finishes
 # ---------------------------------------------------------------------------
+
 
 def poll_for_results(eval_object, eval_run):
     """
@@ -281,7 +290,9 @@ def poll_for_results(eval_object, eval_run):
             break
         elif run.status == "failed":
             # Raise so main() catches it, writes RESULTS_FILE, then exits
-            error_detail = getattr(run, "error", None) or "No additional details available."
+            error_detail = (
+                getattr(run, "error", None) or "No additional details available."
+            )
             raise RuntimeError(
                 f"Evaluation run failed after {elapsed}s.\n"
                 f"  Eval ID : {eval_object.id}\n"
@@ -301,12 +312,13 @@ def poll_for_results(eval_object, eval_run):
 # Step 5 – Collect scores and save results
 # ---------------------------------------------------------------------------
 
+
 def retrieve_and_display_results(eval_object, run):
     """
     Fetch per-item evaluator outputs, compute aggregate statistics, print a
     human-readable summary, and write the same summary to RESULTS_FILE.
 
-    Scores are on a 1-5 scale; a score >= 3 is considered a pass.
+    Scores are on a 1-5 scale; a score >= 4 is considered a pass.
 
     The written file is intended to be committed to the branch so the
     GitHub Actions workflow can read it without re-running the evaluation.
@@ -327,24 +339,26 @@ def retrieve_and_display_results(eval_object, run):
 
     # Separate items by status so we can report errors alongside scores
     errored_items = [
-        item for item in output_items
-        if getattr(item, "status", None) == "error"
+        item for item in output_items if getattr(item, "status", None) == "error"
     ]
     scored_items = [
-        item for item in output_items
-        if getattr(item, "status", None) != "error"
+        item for item in output_items if getattr(item, "status", None) != "error"
     ]
 
     if errored_items:
         print(f"\n  ⚠ {len(errored_items)} item(s) errored during evaluation.")
-        print(f"    First error: {getattr(errored_items[0], 'error', 'details unavailable')}")
-        print(f"    Open Azure AI Foundry portal > Evaluations to inspect all failed items.")
+        print(
+            f"    First error: {getattr(errored_items[0], 'error', 'details unavailable')}"
+        )
+        print(
+            f"    Open Azure AI Foundry portal > Evaluations to inspect all failed items."
+        )
 
     # Collect individual scores grouped by metric name
     scores: dict[str, list[float]] = {
         "intent_resolution": [],
-        "relevance":         [],
-        "groundedness":      [],
+        "relevance": [],
+        "groundedness": [],
     }
 
     for item in scored_items:
@@ -359,8 +373,8 @@ def retrieve_and_display_results(eval_object, run):
 
     metric_labels = {
         "intent_resolution": "Intent Resolution",
-        "relevance":         "Relevance        ",
-        "groundedness":      "Groundedness     ",
+        "relevance": "Relevance        ",
+        "groundedness": "Groundedness     ",
     }
 
     lines = [
@@ -372,25 +386,27 @@ def retrieve_and_display_results(eval_object, run):
         f"  Total items  : {len(output_items)}",
         f"  Errored items: {len(errored_items)}",
         f"  Scored items : {len(scored_items)}",
-        "\nAverage Scores (1-5 scale, threshold: 3)",
+        "\nAverage Scores (1-5 scale, threshold: 4)",
     ]
 
     any_scores = False
-    pass_lines = ["\nPass Rates (score >= 3)"]
+    pass_lines = ["\nPass Rates (score >= 4)"]
 
     for key, label in metric_labels.items():
         values = scores[key]
         if values:
             any_scores = True
-            avg  = sum(values) / len(values)
-            rate = sum(1 for v in values if v >= 3) / len(values) * 100
+            avg = sum(values) / len(values)
+            rate = sum(1 for v in values if v >= 4) / len(values) * 100
             lines.append(f"  {label}: {avg:.2f} (n={len(values)})")
             pass_lines.append(f"  {label}: {rate:.1f}%")
 
     if not any_scores:
         # Scores missing — the evaluation may have completed but returned no
         # evaluator_outputs. Open the Report URL above to inspect in the portal.
-        lines.append("  No scores returned — open Azure AI Foundry portal > Evaluations for details.")
+        lines.append(
+            "  No scores returned — open Azure AI Foundry portal > Evaluations for details."
+        )
         pass_lines.append("  No scores returned.")
 
     lines.extend(pass_lines)
@@ -420,6 +436,7 @@ def retrieve_and_display_results(eval_object, run):
 # Main
 # ---------------------------------------------------------------------------
 
+
 def main() -> None:
     """Orchestrate the full evaluation pipeline step by step."""
     section(" Trail Guide Agent - Cloud Evaluation")
@@ -429,11 +446,11 @@ def main() -> None:
     print(f"  Dataset: {dataset_name} (v{dataset_version})")
 
     try:
-        data_id     = upload_dataset()                          # Step 1
-        eval_object = create_evaluation_definition()            # Step 2
-        eval_run    = run_evaluation(eval_object, data_id)      # Step 3
-        run         = poll_for_results(eval_object, eval_run)   # Step 4
-        retrieve_and_display_results(eval_object, run)          # Step 5
+        data_id = upload_dataset()  # Step 1
+        eval_object = create_evaluation_definition()  # Step 2
+        eval_run = run_evaluation(eval_object, data_id)  # Step 3
+        run = poll_for_results(eval_object, eval_run)  # Step 4
+        retrieve_and_display_results(eval_object, run)  # Step 5
 
         section("Cloud evaluation complete")
         print(f"\nNext steps:")
