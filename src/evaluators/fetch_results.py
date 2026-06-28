@@ -119,6 +119,44 @@ def status_of(item):
     return data.get("status")
 
 
+def list_all_runs(client):
+    """
+    Print every eval definition in the project and its runs, so you can pick a
+    valid eval-id / run-id pair instead of guessing. Foundry cleans up old
+    runs, so memorised IDs can 404 — this shows what currently exists.
+    """
+    print("Evals and runs in this project:\n")
+    found_any = False
+    for ev in client.evals.list():
+        ev_d = _as_dict(ev)
+        ev_id = ev_d.get("id")
+        ev_name = ev_d.get("name", "")
+        print(f"EVAL  {ev_id}   {ev_name}")
+        try:
+            runs = list(client.evals.runs.list(eval_id=ev_id))
+        except Exception as e:
+            print(f"        (could not list runs: {e})")
+            continue
+        if not runs:
+            print("        (no runs)")
+        for r in runs:
+            r_d = _as_dict(r)
+            found_any = True
+            counts = r_d.get("result_counts") or {}
+            counts = _as_dict(counts)
+            created = r_d.get("created_at", "")
+            print(
+                f"  RUN {r_d.get('id')}   status={r_d.get('status')}"
+                f"   counts={counts or '-'}   created={created}"
+            )
+        print()
+    if not found_any:
+        print("No runs found in this project.")
+    else:
+        print("To fetch one:  python src/evaluators/fetch_results.py "
+              "--eval-id <EVAL> --run-id <RUN>")
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -130,6 +168,9 @@ def main():
                         help=f"Evaluation ID (default: {DEFAULT_EVAL_ID})")
     parser.add_argument("--run-id", default=os.environ.get("RUN_ID", DEFAULT_RUN_ID),
                         help=f"Run ID (default: {DEFAULT_RUN_ID})")
+    parser.add_argument("--list", action="store_true", dest="list_runs",
+                        help="List all evals and their runs (id, status, counts) and exit. "
+                             "Use this to find a valid run instead of guessing IDs.")
     parser.add_argument("--debug", action="store_true",
                         help="Print the raw dict of the first output item and exit.")
     parser.add_argument("--no-write", action="store_true",
@@ -143,12 +184,21 @@ def main():
     project_client = AIProjectClient(endpoint=endpoint, credential=DefaultAzureCredential())
     client = project_client.get_openai_client()
 
+    if args.list_runs:
+        list_all_runs(client)
+        return
+
     print(f"Fetching results for:")
     print(f"  Eval ID: {args.eval_id}")
     print(f"  Run ID : {args.run_id}\n")
 
     # Confirm the run is actually complete before reading items.
-    run = client.evals.runs.retrieve(run_id=args.run_id, eval_id=args.eval_id)
+    try:
+        run = client.evals.runs.retrieve(run_id=args.run_id, eval_id=args.eval_id)
+    except Exception as e:
+        print(f"Could not retrieve that run (it may have been deleted or the IDs are stale):\n  {e}\n")
+        print("Run with --list to see the evals/runs that actually exist in this project.")
+        sys.exit(1)
     print(f"Run status: {run.status}")
     if run.status != "completed":
         print(f"  This run is '{run.status}', not 'completed'. Scores may be partial or absent.")
