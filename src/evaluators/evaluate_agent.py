@@ -33,6 +33,22 @@ endpoint              = os.environ.get("AZURE_AI_PROJECT_ENDPOINT")
 model_deployment_name = os.environ.get("MODEL_NAME", "gpt-4.1")
 dataset_name          = "trail-guide-evaluation-dataset"
 dataset_version       = "2"
+# ---------------------------------------------------------------------------
+# DATASET VERSION CONVENTION  (read before changing dataset_version!)
+# ---------------------------------------------------------------------------
+# Foundry datasets are IMMUTABLE per name+version. Editing the local .jsonl
+# does NOT change what Foundry has — you must bump to a NEW version number,
+# otherwise upload_dataset() catches "already exists" and silently REUSES the
+# old data (see upload_dataset() below).
+#
+# To switch datasets:
+#   1. Point the file_path in upload_dataset() at the file you want, AND
+#   2. Bump dataset_version to a number not yet used in Foundry.
+#
+# Version history:
+#   v1 -> data/trail_guide_evaluation_dataset_full.jsonl  (89 rows, full eval)
+#   v2 -> data/trail_guide_evaluation_dataset.jsonl       ( 5 rows, fast smoke test)  <-- current
+# ---------------------------------------------------------------------------
 
 # The script writes a plain-text summary here when it finishes.
 # This file is committed to the branch so the GitHub Actions workflow
