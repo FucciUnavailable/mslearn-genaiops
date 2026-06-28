@@ -32,7 +32,7 @@ load_dotenv()  # reads variables from the .env file in your project root
 endpoint              = os.environ.get("AZURE_AI_PROJECT_ENDPOINT")
 model_deployment_name = os.environ.get("MODEL_NAME", "gpt-4.1")
 dataset_name          = "trail-guide-evaluation-dataset"
-dataset_version       = "1"
+dataset_version       = "2"
 
 # The script writes a plain-text summary here when it finishes.
 # This file is committed to the branch so the GitHub Actions workflow
@@ -234,7 +234,7 @@ def run_evaluation(eval_object, data_id):
     print(f"\n✓ Evaluation run started")
     print(f"  Run ID: {eval_run.id}")
     print(f"  Status: {eval_run.status}")
-    print(f"\nThis may take 15-60+ minutes for 89 items depending on capacity and quota...")
+    print(f"\nThis may take a few minutes for 5 items depending on capacity and quota...")
     return eval_run
 
 
